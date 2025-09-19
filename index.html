@@ -1,1 +1,238 @@
-vhannaj
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaGue Love - Jwèt pou Koup</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: linear-gradient(135deg, #ffe6ec, #e3f6fc);
+      margin: 0; padding: 0;
+    }
+    header, main { text-align: center; }
+    button { border-radius: 20px; padding: 10px 20px; background: #ff6f91; color: #fff; border: none; margin: 5px;}
+    button:hover { background: #ffb6b9; cursor:pointer;}
+    input { padding: 8px; border-radius: 10px; border: 1px solid #ccc; margin: 5px;}
+    #scoreBoard { font-size: 1.2em; }
+    #romanticQuote { font-style: italic; color: #af4c7b; margin-top: 20px;}
+    @media (max-width: 600px) {
+      main { padding: 10px; }
+      h1 { font-size: 1.5em; }
+    }
+    #gameArea .card {
+      display: inline-block;
+      width: 60px;
+      height: 60px;
+      margin: 5px;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px #ddd;
+      font-size: 2em;
+      line-height: 60px;
+      cursor: pointer;
+      user-select: none;
+    }
+    #gameArea .card.flipped {
+      background: #ffb6b9;
+    }
+    #gameArea .card.matched {
+      background: #b2f2d9;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>TaGue Love 💖</h1>
+    <p>Jwe ansanm, pataje lanmou!</p>
+  </header>
+  <main>
+    <section id="login">
+      <input type="text" id="username" placeholder="Non ou">
+      <input type="text" id="partnername" placeholder="Non patnè ou">
+      <button id="startSession">Kòmanse!</button>
+    </section>
+    <section id="games" style="display:none;">
+      <h2>Chwazi yon jwèt</h2>
+      <button class="game-btn" data-game="memory">Memory</button>
+      <button class="game-btn" data-game="quiz">Quiz Couple</button>
+    </section>
+    <section id="gameArea" style="display:none;"></section>
+    <section id="score" style="display:none;">
+      <h3>Scores</h3>
+      <div id="scoreBoard"></div>
+    </section>
+    <section id="quote">
+      <blockquote id="romanticQuote"></blockquote>
+    </section>
+  </main>
+
+  <!-- Pour la démo locale, on n'a pas de backend : tout se passe sur un seul appareil ! -->
+  <script>
+    // --- Citations romantiques
+    const quotes = [
+      "L’amour, c’est regarder ensemble dans la même direction.",
+      "Le bonheur c’est d’être à deux.",
+      "Tout est plus doux à deux.",
+      "Aimer, c’est savoir dire je t’aime sans parler.",
+      "Le couple parfait n’existe pas. Mais deux personnes qui s’aiment peuvent l’être."
+    ];
+    document.getElementById('romanticQuote').textContent = quotes[Math.floor(Math.random() * quotes.length)];
+
+    // --- Démo: gestion de session simple (local)
+    let players = [];
+    let currentSession = false;
+
+    document.getElementById('startSession').onclick = function() {
+      const username = document.getElementById('username').value.trim();
+      const partnername = document.getElementById('partnername').value.trim();
+      if(username && partnername) {
+        players = [username, partnername];
+        currentSession = true;
+        document.getElementById('login').style.display = 'none';
+        document.getElementById('games').style.display = 'block';
+        document.getElementById('score').style.display = 'block';
+        updateScore({[username]:0, [partnername]:0});
+      } else {
+        alert("Tanpri mete non w ak non patnè w!");
+      }
+    };
+
+    document.querySelectorAll('.game-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const game = btn.dataset.game;
+        document.getElementById('games').style.display = 'none';
+        document.getElementById('gameArea').style.display = 'block';
+        loadGame(game);
+      });
+    });
+
+    // --- Gestion des scores
+    let scores = {};
+    function updateScore(newScores) {
+      scores = {...scores, ...newScores};
+      let txt = '';
+      for(const p in scores) { txt += `${p}: ${scores[p]} | `; }
+      document.getElementById('scoreBoard').textContent = txt.replace(/\| $/, '');
+    }
+
+    // --- Jeux
+    function loadGame(game) {
+      if(game === 'memory') {
+        loadMemoryGame();
+      } else if(game === 'quiz') {
+        loadQuizGame();
+      }
+    }
+
+    // --- Jeu Memory simple 2 joueurs, sur le même écran
+    function loadMemoryGame() {
+      const emojis = ['🍒','🍒','🍋','🍋','🍉','🍉','🍓','🍓'];
+      // Mélange
+      emojis.sort(()=> Math.random()-0.5);
+
+      let cards = emojis.map((emoji,i)=>({id:i, emoji, flipped:false, matched:false}));
+      let firstFlip = null, secondFlip = null, lock=false, found=0;
+      let turn = 0; // 0=joueur 1, 1=joueur 2
+
+      const area = document.getElementById('gameArea');
+      area.innerHTML = `<h3>Memory</h3>
+        <p>${players[turn]}, se tour ou! (Chwazi 2 kat)</p>
+        <div id="memoryCards"></div>
+        <button id="resetMemory">Rejoue</button>
+      `;
+      renderCards();
+
+      function renderCards() {
+        let html = '';
+        for(const c of cards) {
+          let cls = "card";
+          if(c.flipped) cls += " flipped";
+          if(c.matched) cls += " matched";
+          html += `<div class="${cls}" data-id="${c.id}">${(c.flipped||c.matched)?c.emoji:"❓"}</div>`;
+        }
+        document.getElementById('memoryCards').innerHTML = html;
+        document.querySelectorAll('#memoryCards .card').forEach(cardEl=>{
+          cardEl.onclick = function() {
+            if(lock) return;
+            const id = parseInt(this.dataset.id);
+            const card = cards[id];
+            if(card.flipped || card.matched) return;
+            card.flipped = true;
+            if(!firstFlip) {
+              firstFlip = card;
+            } else {
+              secondFlip = card;
+              lock = true;
+              setTimeout(()=>{
+                if(firstFlip.emoji===secondFlip.emoji) {
+                  firstFlip.matched = secondFlip.matched = true;
+                  found++;
+                  scores[players[turn]] = (scores[players[turn]]||0)+1;
+                  updateScore(scores);
+                  if(found===4) {
+                    alert('Fini! Gayan: '+ ((scores[players[0]]>scores[players[1]])?players[0]:players[1]));
+                  }
+                } else {
+                  firstFlip.flipped = secondFlip.flipped = false;
+                  turn = 1-turn;
+                  area.querySelector("p").textContent = `${players[turn]}, se tour ou! (Chwazi 2 kat)`;
+                }
+                firstFlip = secondFlip = null;
+                lock = false;
+                renderCards();
+              }, 800);
+            }
+            renderCards();
+          }
+        });
+      }
+      document.getElementById('resetMemory').onclick = ()=>loadMemoryGame();
+    }
+
+    // --- Jeu Quiz Couple
+    function loadQuizGame() {
+      const questions = [
+        {q:"Ki koulè patnè ou prefere?", a:""},
+        {q:"Ki dat ou rankontre?", a:""},
+        {q:"Ki manje patnè ou pi renmen?", a:""}
+      ];
+      let idx=0, turn=0;
+      const area = document.getElementById('gameArea');
+      area.innerHTML = `<h3>Quiz Couple</h3>
+        <div id="quizQ">${questions[idx].q}</div>
+        <input id="quizA" placeholder="Repons ou"><br>
+        <button id="quizSubmit">Valide</button>
+        <p id="quizTurn"></p>
+        <button id="resetQuiz">Rejoue</button>
+      `;
+      quizSetTurn();
+
+      document.getElementById('quizSubmit').onclick = ()=>{
+        const ans = document.getElementById('quizA').value.trim();
+        if(!ans) return alert("Ekri repons ou!");
+        questions[idx].a = ans;
+        scores[players[turn]] = (scores[players[turn]]||0)+1;
+        updateScore(scores);
+        idx++;
+        turn = 1-turn;
+        if(idx<questions.length) {
+          document.getElementById('quizQ').textContent = questions[idx].q;
+          document.getElementById('quizA').value = '';
+          quizSetTurn();
+        } else {
+          document.getElementById('quizQ').textContent = "Fini! Gade repons patnè ou epi pale ansanm 😊";
+          document.getElementById('quizA').style.display = 'none';
+          document.getElementById('quizSubmit').style.display = 'none';
+          document.getElementById('quizTurn').style.display = 'none';
+        }
+      };
+      document.getElementById('resetQuiz').onclick = ()=>loadQuizGame();
+      function quizSetTurn() {
+        document.getElementById('quizTurn').textContent = `${players[turn]}, repons ou!`;
+      }
+    }
+  </script>
+</body>
+</html>
